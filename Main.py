@@ -3,7 +3,7 @@
 #Importations 
 import pandas as pd
 import matplotlib.pyplot as plt
-# from sqlalchemy import create_engine 
+import sqlite3
 
 
 
@@ -58,14 +58,14 @@ def categorisationVax(personne): #Permet de définir si la personne est considé
     score = c_vax/c_somme *vax + c_usage_vaccin/c_somme *usage_vaccin/2 + c_pass_vaccin/c_somme * pass_vaccin/2
     
     if -1 <= score < -0.25:
-        return "Anti-Vax"
+        return "Anti-vax"
     elif 0.25 < score <= 1:
         return "Pro-vax"
     else:
         return "Neutre"
   
   
-def categorisationPolitque(personne): #Permet de placer la personne sur l'échiquier politique
+def categorisationPolitque(personne): #Permet de placer la personne sur l'échiquier politique en fonction de leur réponse au questionnaire
     positionnement = personne["Quel est votre positionnement politique ? (Optionnel)"]
     if positionnement in [0, 1] :
         return "Extrème-gauche"
@@ -77,6 +77,8 @@ def categorisationPolitque(personne): #Permet de placer la personne sur l'échiq
         return "Droite"
     elif positionnement in [9, 10]:
         return "Extrème-droite"
+    else:
+        return "NA"
     
     
 def categorisationEntourage(personne): #Permet de définir si l'entourage de la personne est à tendance pro-vax, neutre ou anti-vax
@@ -133,6 +135,7 @@ def categorisationEntourage(personne): #Permet de définir si l'entourage de la 
 def categorisationPassifCovid(personne): #Permet de définir à quel point une personne a été impacté par la covid-19
     score = 0
     
+    #Association d'une valeur d'impact à différents paramètres
     if personne['Vous connaissez ou avez connu :'] == 'Un proche ayant contracté une forme grave de Covid-19':
         score += 1
     if personne['Vous connaissez ou avez connu :'] == "Le décès d'un proche dû au Covid-19":
@@ -140,15 +143,16 @@ def categorisationPassifCovid(personne): #Permet de définir à quel point une p
     if personne['Pour ma part :'] == "J'ai contracté une forme grave de Covid-19 suite à une infection":
         score += 2
     
+    #Attribution du degrée d'impact du covid sur le répondant
     if score == 0:
         return "Non touché"
     elif score in [1, 2]:
         return "Peu touché"
     elif score >= 3:
         return "Très touché"
-       
+
     
-def categorisationGeneMesure(personne):
+def categorisationGeneMesure(personne): #Permet de catégoriser le niveau de gêne des mesures sur le répondant (explications complémentaires dans le rapport)
     score = 0
     
     if "Je tolère le port du masque au quotidien (ne me gène pas trop sur le visage...)" in personne["Quels sont les arguments qui vous font pencher plutôt pour le port du masque ?"]:
@@ -186,7 +190,7 @@ def categorisationGeneMesure(personne):
         return "Très"
 
 
-def categorisationConfianceGouvernement(personne):
+def categorisationConfianceGouvernement(personne): #Permet de catégoriser le niveau de confiance dans le gouvernement du répondant (explications complémentaires dans le rapport)
     score = 0
     
     if "Je fais confiance à cette mesure du gouvernement pour son intérêt dans la gestion de la pandémie" in personne["Quels sont les arguments qui vous font pencher plutôt pour le port du masque ?"]:
@@ -228,7 +232,7 @@ def categorisationConfianceGouvernement(personne):
         return "Pas du tout"
     
     
-def categorisationSceptiscismeMesure(personne):
+def categorisationSceptiscismeMesure(personne): #Permet de catégoriser l'avis du répondant sur les mesures prises par le gouvernement (explications complémentaires dans le rapport)
     score = 0
     
     if "Je pense que le masque est utile pour freiner la propagation du virus" in personne["Quels sont les arguments qui vous font pencher plutôt pour le port du masque ?"]:
@@ -286,7 +290,7 @@ def categorisationSceptiscismeMesure(personne):
         return "Très"   
 
 
-def categorisationSceptiscismePandemie(personne):
+def categorisationSceptiscismePandemie(personne): #Permet de catégoriser l'avis du répondant sur la dangeurosité de la pandémie (explications complémentaires dans le rapport)
     score = 0
     
     if "Je pense que le masque est utile pour freiner la propagation du virus" in personne["Quels sont les arguments qui vous font pencher plutôt pour le port du masque ?"]:
@@ -332,7 +336,7 @@ def categorisationSceptiscismePandemie(personne):
         return "Très"
 
     
-def categorisationSceptiscismeVaccin(personne):
+def categorisationSceptiscismeVaccin(personne): #Permet de catégoriser le niveau de confiance dans le vaccin du répondant (explications complémentaires dans le rapport)
     score = 0
     
     if "Je pense que le vaccin est et restera suffisamment inoffensif pour la santé" in personne["Quels sont les arguments qui vous font pencher plutôt pour la vaccination au Covid-19 ?"]:
@@ -379,7 +383,7 @@ def categorisationSceptiscismeVaccin(personne):
     
     
     
-def traitementPersonne(personne):
+def traitementPersonne(personne): #Permet de traiter les données d'un répondant pour faciliter la lecture des données récoltées
     resPersonne = []
     
     resPersonne.append(categorisationVax(personne))
@@ -412,14 +416,16 @@ datasetF = pd.DataFrame( columns = ["Catégorie", "Genre", "Age", "Nombre Doses 
 
 #Remplissage du dataset final
 for i in range(data.shape[0]):
-    datasetF.iloc[i] = traitementPersonne(data.iloc[i])
+    datasetF.loc['{}'.format(i)] = traitementPersonne(data.iloc[i])
 
-"""
+
 #Export vers SQL
-engine = create_engine("sqldevelopper://", echo = False)
-datasetF.to_sql("Anti-Vax DataBase", con = engine )
+engine = sqlite3.connect('Pro-Anti_Vax_DataBase.db')
+cur = engine.cursor()
+datasetF.to_sql("Ronde", engine, if_exists='replace', index=False)
+engine.commit()
+engine.close()
 
 
 #Export vers csv
-datasetF.to_csv("Données_traitées.csv", index = False)
-"""
+datasetF.to_csv("Pro-Anti_Vax_DataBase.csv", index = False)
